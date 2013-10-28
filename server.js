@@ -28,6 +28,12 @@ function handleRequest(req, res) {
   else if (req.method == "POST") {
     handleUpload(req, res);
   }
+  else if (req.method == "OPTIONS") {
+    res.writeHead(200, {
+      "Access-Control-Allow-Origin": config["tracker"]
+    });
+    res.end();
+  }
   else {
     handleError(res, "unknown error");
   }
@@ -71,7 +77,7 @@ function handleUpload(req, res) {
 
     stream.on('end', function () {
       var hash = sha.digest('hex');
-      var dest = path.join(config['data'], hash);
+      var dest = path.join(config['data_root'], hash);
       
       function done () {
         var sha = crypto.createHash("sha1");
@@ -82,19 +88,32 @@ function handleUpload(req, res) {
           size: upload.size,
           filename: upload.name,
           server: config['id'],
-          tags: parts.query.tags,
+          tags: fields.tags,
           sig: sig
         };
-        res.writeHead(200, {
-          "Content-Type": "text/javascript",
-          "Access-Control-Allow-Origin": config['tracker']
-        });
-        res.end(JSON.stringify(res_data));
+        var body = encodeURIComponent(
+          (new Buffer(JSON.stringify(res_data))).toString("base64")
+        );
+        if (fields.is_js) {
+          res.writeHead(200, {
+            "Content-Type": "text/javascript",
+            "Access-Control-Allow-Origin": config['tracker']
+          });
+          res.end(JSON.stringify(
+            {location: fields['return'] + "?" + body}
+          ));
+        }
+        else {
+          res.writeHead(301, {
+            "Location": fields['return'] + "?" + body
+          });
+          res.end();
+        }
       }
 
       if (!fs.existsSync(dest)) {
         var source_stream = fs.createReadStream(upload.path);
-        var dest_stream = fs.createReadStream(dest);
+        var dest_stream = fs.createWriteStream(dest);
         source_stream.pipe(dest_stream);
         source_stream.on("end", done);
         source_stream.on("error", error);
