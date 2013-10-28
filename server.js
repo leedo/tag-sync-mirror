@@ -16,115 +16,102 @@ console.log("listening on port " + config['port']);
 server.listen(config['port']);
 
 function handleRequest(req, res) {
-  if (req.method == "GET") {
-    var parts = url.parse(req.url);
-    if (parts.pathname == "/ping") {
-      handlePing(req, res);
+  try {
+    if (req.method == "GET") {
+      var parts = url.parse(req.url);
+      if (parts.pathname == "/ping") {
+        handlePing(req, res);
+      }
+      else {
+        handleDownload(req, res);
+      }
+    }
+    else if (req.method == "POST") {
+      handleUpload(req, res);
+    }
+    else if (req.method == "OPTIONS") {
+      res.writeHead(200, {
+        "Access-Control-Allow-Origin": config["tracker"]
+      });
+      res.end();
     }
     else {
-      handleDownload(req, res);
+      throw "unknown error"
     }
   }
-  else if (req.method == "POST") {
-    handleUpload(req, res);
+  catch (err) {
+    handleError(res, err);
   }
-  else if (req.method == "OPTIONS") {
-    res.writeHead(200, {
-      "Access-Control-Allow-Origin": config["tracker"]
-    });
-    res.end();
-  }
-  else {
-    handleError(res, "unknown error");
-  }
+}
+
+function decodeToken(token) {
+  if (!token)
+    throw "token is required";
+
+  var token_parts = new Buffer(token, "base64").toString().match(/^([^:]+):(.+)/);
+  var hmac = crypto.createHmac("sha1", config["token"]);
+  hmac.update(token_parts[2]);
+  var valid = hmac.digest('hex');
+
+  if (valid != token_parts[1])
+    throw "invalid token";
+
+  return JSON.parse(token_parts[2]);
 }
 
 function handleUpload(req, res) {
   var form = new formidable.IncomingForm({
-    uploadDir: path.join(config['data_root'], "tmp")
+    uploadDir: config['data_root'],
+    hash: "sha1"
   });
   form.parse(req, function(err, fields, files) {
     if (err) return handleError(res, err);
     if (!files.file) return handleError(res, "no file");    
 
-    var token = fields.token;
-
-    if (!token)
-      return handleError(res, "token is required");
-
-    var token_parts = new Buffer(token, "base64").toString().match(/^([^:]+):(.+)/);
-    var hmac = crypto.createHmac("sha1", config["token"]);
-    hmac.update(token_parts[2]);
-    var valid = hmac.digest('hex');
-
-    if (valid != token_parts[1])
-      return handleError(res, "invalid token");
-
-    var data = JSON.parse(token_parts[2]);
-
+    var data = decodeToken(fields.token);
     var upload = files.file;
-    var stream = fs.createReadStream(upload.path);
-    var sha = crypto.createHash("sha1");
-
-    function error(err) {
-      handleError(res, err);
-    }
-
-    stream.on('error', error);
-    stream.on('data', function(data) {
-      sha.update(data);
-    });
-
-    stream.on('end', function () {
-      var hash = sha.digest('hex');
-      var dest = path.join(config['data_root'], hash);
+    var dest = path.join(config['data_root'], hash);
       
-      function done () {
-        var sha = crypto.createHash("sha1");
-        sha.update([config['token'], upload.size, hash].join(""));
-        var sig = sha.digest("hex");
-        var res_data = {
-          hash: hash,
-          size: upload.size,
-          filename: upload.name,
-          server: config['id'],
-          tags: fields.tags,
-          sig: sig
-        };
-        var body = encodeURIComponent(
-          (new Buffer(JSON.stringify(res_data))).toString("base64")
-        );
-        if (fields.is_js) {
-          res.writeHead(200, {
-            "Content-Type": "text/javascript",
-            "Access-Control-Allow-Origin": config['tracker']
-          });
-          res.end(JSON.stringify(
-            {location: fields['return'] + "?" + body}
-          ));
-        }
-        else {
-          res.writeHead(301, {
-            "Location": fields['return'] + "?" + body
-          });
-          res.end();
-        }
-      }
-
-      if (!fs.existsSync(dest)) {
-        var source_stream = fs.createReadStream(upload.path);
-        var dest_stream = fs.createWriteStream(dest);
-        source_stream.pipe(dest_stream);
-        source_stream.on("end", done);
-        source_stream.on("error", error);
+    function done () {
+      var sha = crypto.createHash("sha1");
+      sha.update([config['token'], upload.size, hash].join(""));
+      var sig = sha.digest("hex");
+      var res_data = {
+        hash: hash,
+        size: upload.size,
+        filename: upload.name,
+        server: config['id'],
+        tags: fields.tags,
+        sig: sig
+      };
+      var body = encodeURIComponent(
+        (new Buffer(JSON.stringify(res_data))).toString("base64")
+      );
+      if (fields.is_js) {
+        res.writeHead(200, {
+          "Content-Type": "text/javascript",
+          "Access-Control-Allow-Origin": config['tracker']
+        });
+        res.end(JSON.stringify({location: fields['return'] + "?" + body}));
       }
       else {
-        done();
+        res.writeHead(301, {"Location": fields['return'] + "?" + body});
+        res.end();
       }
-    });
-  });
+    }
 
-  return;
+    if (!fs.existsSync(dest)) {
+      rs.rename(upload.path, dest, function(err) {
+        if (err)
+          handleError(res, err);
+        else
+          done();
+      });
+    }
+    else {
+      done();
+    }
+  });
 }
 
 function handlePing(req, res) {
@@ -143,30 +130,17 @@ function handleDownload(req, res) {
     return handleError(res, "missing hash");
 
   var hash = match[1];
-  var token = parts.query.token;
-
-  if (!token)
-    return handleError(res, "token is required");
-
-  var token_parts = new Buffer(token, "base64").toString().match(/^([^:]+):(.+)/);
-  var hmac = crypto.createHmac("sha1", config["token"]);
-  hmac.update(token_parts[2]);
-  var valid = hmac.digest('hex');
-
-  if (valid != token_parts[1])
-    return handleError(res, "invalid token");
-
-  var data = JSON.parse(token_parts[2]);
+  var data = decodeToken(parts.query.token);
   var required = ['filename', 'time', 'size'];
 
   for (var i=0; i < required.length; i++) {
     if (!data[required[i]])
-      return handleError(required[i] + " is missing");
+      throw required[i] + " is missing";
   }
 
   var time = (new Date()).getTime() / 1000;
   if (time - data['time'] > (60 * 10)) {
-    return handleError(res, "token is expired");
+    throw "token is expired";
   }
 
   var file = path.join(config['data_root'], hash);
