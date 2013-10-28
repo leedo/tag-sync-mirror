@@ -60,24 +60,22 @@ function decodeToken(token) {
 }
 
 function handleUpload(req, res) {
-  var form = new formidable.IncomingForm({
-    uploadDir: config['data_root'],
-    hash: "sha1"
-  });
+  var form = new formidable.IncomingForm({uploadDir: config['data_root']});
+  form.hash = "sha1";
   form.parse(req, function(err, fields, files) {
     if (err) return handleError(res, err);
     if (!files.file) return handleError(res, "no file");    
 
     var data = decodeToken(fields.token);
     var upload = files.file;
-    var dest = path.join(config['data_root'], hash);
+    var dest = path.join(config['data_root'], upload.hash);
       
     function done () {
       var sha = crypto.createHash("sha1");
-      sha.update([config['token'], upload.size, hash].join(""));
+      sha.update([config['token'], upload.size, upload.hash].join(""));
       var sig = sha.digest("hex");
       var res_data = {
-        hash: hash,
+        hash: upload.hash,
         size: upload.size,
         filename: upload.name,
         server: config['id'],
@@ -101,7 +99,7 @@ function handleUpload(req, res) {
     }
 
     if (!fs.existsSync(dest)) {
-      rs.rename(upload.path, dest, function(err) {
+      fs.rename(upload.path, dest, function(err) {
         if (err)
           handleError(res, err);
         else
