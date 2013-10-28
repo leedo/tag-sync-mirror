@@ -28,49 +28,55 @@ function handleRequest(req, res) {
   else if (req.method == "POST") {
     handleUpload(req, res);
   }
-  handleError(res, "unknown error");
+  else {
+    handleError(res, "unknown error");
+  }
 }
 
 function handleUpload(req, res) {
-  var parts = url.parse(req.url);
-  var token = parts.query.token;
-
-  if (!token)
-    return handleError(res, "token is required");
-
-  var token_parts = new Buffer(token, "base64").toString().split(":");
-  var hmac = crypto.createHmac("sha1", config["token"]);
-  hmac.update(token[1]);
-  var valid = hmac.digest();
-
-  if (valid != token_parts[0])
-    return handleError(res, "invalid token");
-
-  var data = JSON.parse(token_parts[1]);
-  var form = new Formidable.IncomingForm();
-
+  var form = new formidable.IncomingForm({
+    uploadDir: path.join(config['data_root'], "tmp")
+  });
   form.parse(req, function(err, fields, files) {
     if (err) return handleError(res, err);
-    if (!files.length) return handleError(res, "no file");    
+    if (!files.file) return handleError(res, "no file");    
 
-    var upload = files[0];
+    var token = fields.token;
+
+    if (!token)
+      return handleError(res, "token is required");
+
+    var token_parts = new Buffer(token, "base64").toString().match(/^([^:]+):(.+)/);
+    var hmac = crypto.createHmac("sha1", config["token"]);
+    hmac.update(token_parts[2]);
+    var valid = hmac.digest('hex');
+
+    if (valid != token_parts[1])
+      return handleError(res, "invalid token");
+
+    var data = JSON.parse(token_parts[2]);
+
+    var upload = files.file;
     var stream = fs.createReadStream(upload.path);
     var sha = crypto.createHash("sha1");
-    sha.setEncoding("hex");
 
     function error(err) {
       handleError(res, err);
     }
 
     stream.on('error', error);
-    stream.on('end', function () {
-      sha.end();
+    stream.on('data', function(data) {
+      sha.update(data);
+    });
 
-      var hash = sha.read();
-      var dest = fs.join(config['data'], hash);
+    stream.on('end', function () {
+      var hash = sha.digest('hex');
+      var dest = path.join(config['data'], hash);
       
       function done () {
-        var sig = sha.update([config['token'], upload.size, hash].join(""));
+        var sha = crypto.createHash("sha1");
+        sha.update([config['token'], upload.size, hash].join(""));
+        var sig = sha.digest("hex");
         var res_data = {
           hash: hash,
           size: upload.size,
@@ -97,8 +103,6 @@ function handleUpload(req, res) {
         done();
       }
     });
-
-    stream.pipe(sha);
   });
 
   return;
