@@ -146,7 +146,16 @@ function pollTracker() {
       body += chunk;
     });
     res.on('end', function() {
-      var data = JSON.parse(body);
+      try {
+        var data = JSON.parse(body);
+        if (!data.downloads)
+          throw "no downloads";
+      }
+      catch(e) {
+        console.log("got invalid response from tracker");
+        return;
+      }
+
       for (var i=0; i < data.downloads.length; i++) {
         var download = data.downloads[i];
         var dest = path.join(config['data_root'], download.hash);
