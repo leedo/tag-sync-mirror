@@ -1,30 +1,27 @@
 #!/usr/bin/env node
 
 var http = require("http")
-  , url = require("url")
-  , crypto = require("crypto")
-  , fs = require("fs")
+  , url  = require("url")
+  , fs   = require("fs")
   , path = require("path")
   , util = require("util")
+  , crypto = require("crypto")
   , formidable = require('formidable');
 
 var server = http.createServer(handleRequest);
 var config = JSON.parse(fs.readFileSync("config.json"));
 
 console.log("listening on port " + config['port']);
-
 server.listen(config['port']);
 
 function handleRequest(req, res) {
   try {
     if (req.method == "GET") {
       var parts = url.parse(req.url);
-      if (parts.pathname == "/ping") {
+      if (parts.pathname == "/ping")
         handlePing(req, res);
-      }
-      else {
+      else
         handleDownload(req, res);
-      }
     }
     else if (req.method == "POST") {
       handleUpload(req, res);
@@ -137,9 +134,8 @@ function handleDownload(req, res) {
   }
 
   var time = (new Date()).getTime() / 1000;
-  if (time - data['time'] > (60 * 10)) {
+  if (time - data['time'] > (60 * 10))
     throw "token is expired";
-  }
 
   var file = path.join(config['data_root'], hash);
   var stat = fs.stat(file, function(err, stat) {
