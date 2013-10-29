@@ -120,8 +120,15 @@ function checkSyncQueue() {
       body += chunk;
     });
     res.on('end', function() {
-      var data = JSON.parse(body);
-      downloadFile(download, data.servers);
+      try {
+        var data = JSON.parse(body);
+        if (!data.servers)
+          throw "no servers in response";
+        downloadFile(download, data.servers);
+      }
+      catch (e) {
+        console.log(e);
+      }
     });
   });
   req.end();
@@ -152,7 +159,7 @@ function pollTracker() {
           throw "no downloads";
       }
       catch(e) {
-        console.log("got invalid response from tracker");
+        console.log(e);
         return;
       }
 
