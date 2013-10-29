@@ -333,8 +333,11 @@ function handleError (req, res, error) {
 }
 
 function corsHeader (req) {
-  var tracker_parts = url.parse(config['tracker']);
+  if (!req.headers['origin'])
+    return config['tracker'];
+
   var origin = url.parse(req.headers['origin']);
+  var tracker_parts = url.parse(config['tracker']);
   tracker_parts['protocol'] = origin['protocol'];
   return url.format(tracker_parts).replace(/\/$/, "");
 }
