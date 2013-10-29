@@ -11,8 +11,143 @@ var http = require("http")
 var server = http.createServer(handleRequest);
 var config = JSON.parse(fs.readFileSync("config.json"));
 
+var sync = {
+  size   : 3,
+  poller : setInterval(pollTracker, 1000 * 60 * 10),
+  syncer : setInterval(checkSyncQueue, 1000 * 5),
+  queue  : [],
+  jobs   : {}
+};
+
+pollTracker();
+
 console.log("listening on port " + config['port']);
 server.listen(config['port']);
+
+function downloadFile(download, servers) {
+  // no servers left, give up
+  if (!servers.length) {
+    delete sync.jobs[download.hash];
+    return;
+  }
+
+  var server = servers.pop();
+  var parts = url.parse(server.url);
+
+  // skip server if it is ourself
+  if (server.id == config['id'])
+    return downloadFile(download, servers);
+
+  console.log("attempting to download " + download.filename + " from " + server.name);
+
+  var req = http.request({
+    method: "GET",
+    hostname: parts['hostname'],
+    port: parts['port'],
+    path: "/download/" + download.hash + "?token=" + encodeURIComponent(server.token),
+  }, function(res) {
+    // error response
+    if (res.headers["content-type"] == "text/javascript") {
+      console.log(server.name + " did not have " + download.filename);
+      var body = "";
+      res.on('data', function(chunk) {
+        body += chunk;
+      });
+      res.on('end', function() {
+        var data = JSON.parse(body);
+        downloadFile(download, servers);
+      });
+      return;
+    }
+
+    console.log("downloading " + download.filename + " from " + server.name);
+
+    // data response
+    var temp = path.join(config["data_root"], "tmp", download.hash);
+    var write = fs.createWriteStream(temp);
+    res.on('end', function() {
+      var dest = path.join(config["data_root"], download.hash);
+      fs.rename(temp, dest, function(err) {
+        if (err) {
+          console.log(err);
+          delete sync.jobs[download.hash];
+          return;
+        }
+        console.log("finished " + download.filename + " from " + server.name);
+        delete sync.jobs[download.hash];
+      });
+    });
+    // try another server
+    res.on('error', function() {
+      downloadFile(download, servers);
+    });
+    res.pipe(write);
+  });
+
+  req.on("error", function(e) {
+    console.log("error from " + server.name + ": " + e);
+    downloadFile(download, servers);
+  });
+
+  req.end();
+}
+
+function checkSyncQueue() {
+  if (sync.queue.length == 0 || Object.keys(sync.jobs).length >= sync.size)
+    return;
+
+  var download = sync.queue.pop();
+  var dest = path.join(config['data_root'], download.hash);
+  if (fs.existsSync(dest) || sync.jobs[download.hash])
+    return;
+
+  var parts = url.parse(config['tracker']);
+  var req = sync.jobs[download.hash] = http.request({
+    method: "GET",
+    hostname: parts['hostname'],
+    port: parts['port'],
+    path: "/tracker/api/upload/" + download.id + "/servers",
+    headers: { "X-Server-Auth": config['token'] }
+  }, function(res) {
+    var body = "";
+    res.on('data', function(chunk) {
+      body += chunk;
+    });
+    res.on('end', function() {
+      var data = JSON.parse(body);
+      downloadFile(download, data.servers);
+    });
+  });
+  req.end();
+}
+
+function pollTracker() {
+  var parts = url.parse(config['tracker']);
+  var req = http.request({
+    method: "GET",
+    hostname: parts['hostname'],
+    port: parts['port'],
+    path: "/tracker/api/my/downloads",
+    headers: { "X-Server-Auth": config['token'] }
+  }, function(res) {
+    var body = "";
+    res.on('data', function(chunk) {
+      body += chunk;
+    });
+    res.on('end', function() {
+      var data = JSON.parse(body);
+      for (var i=0; i < data.downloads.length; i++) {
+        var download = data.downloads[i];
+        var dest = path.join(config['data_root'], download.hash);
+        if (!fs.existsSync(dest) && !sync.jobs[download.hash]) {
+          console.log("enqueued " + download.filename);
+          sync.queue.push(download);
+        }
+      }
+    });
+  });
+  req.end();
+}
 
 function handleRequest(req, res) {
   try {
