@@ -24,6 +24,10 @@ pollTracker();
 console.log("listening on port " + config['port']);
 server.listen(config['port']);
 
+//
+// Try to download a file from each server until it succeeds
+// or there are no servers left to try.
+//
 function downloadFile(download, servers) {
   // no servers left, give up
   if (!servers.length) {
@@ -92,6 +96,10 @@ function downloadFile(download, servers) {
   req.end();
 }
 
+//
+// If there are downloads and open download slots, start one.
+// This is called every minute.
+//
 function checkSyncQueue() {
   if (sync.queue.length == 0 || Object.keys(sync.jobs).length >= sync.size)
     return;
@@ -121,6 +129,11 @@ function checkSyncQueue() {
   req.end();
 }
 
+//
+// Query the tracker for the most recent downloads
+// that the server subscribes to (tags or users)
+// This is called every 15 minutes.
+//
 function pollTracker() {
   var parts = url.parse(config['tracker']);
   var req = http.request({
@@ -149,6 +162,9 @@ function pollTracker() {
   req.end();
 }
 
+//
+// HTTP handlers
+//
 function handleRequest(req, res) {
   try {
     if (req.method == "GET") {
