@@ -186,7 +186,7 @@ function handleRequest(req, res) {
     }
     else if (req.method == "OPTIONS") {
       res.writeHead(200, {
-        "Access-Control-Allow-Origin": config["tracker"]
+        "Access-Control-Allow-Origin": corsHeader(req)
       });
       res.end();
     }
@@ -195,7 +195,7 @@ function handleRequest(req, res) {
     }
   }
   catch (err) {
-    handleError(res, err);
+    handleError(req, res, err);
   }
 }
 
@@ -218,8 +218,8 @@ function handleUpload(req, res) {
   var form = new formidable.IncomingForm({uploadDir: config['data_root']});
   form.hash = "sha1";
   form.parse(req, function(err, fields, files) {
-    if (err) return handleError(res, err);
-    if (!files.file) return handleError(res, "no file");    
+    if (err) return handleError(req, res, err);
+    if (!files.file) return handleError(req, res, "no file");    
 
     var data = decodeToken(fields.token);
     var upload = files.file;
@@ -243,7 +243,7 @@ function handleUpload(req, res) {
       if (fields.is_js) {
         res.writeHead(200, {
           "Content-Type": "text/javascript",
-          "Access-Control-Allow-Origin": config['tracker']
+          "Access-Control-Allow-Origin": corsHeader(req)
         });
         res.end(JSON.stringify({location: fields['return'] + "?" + body}));
       }
@@ -260,7 +260,7 @@ function handleUpload(req, res) {
     else {
       fs.rename(upload.path, dest, function(err) {
         if (err)
-          handleError(res, err);
+          handleError(req, res, err);
         else
           done();
       });
@@ -271,7 +271,7 @@ function handleUpload(req, res) {
 function handlePing(req, res) {
   res.writeHead(200, {
     "Content-Type": "text/javascript",
-    "Access-Control-Allow-Origin": config['tracker']
+    "Access-Control-Allow-Origin": corsHeader(req)
   });
   res.end(JSON.stringify({success: "ok"}));
 }
@@ -281,7 +281,7 @@ function handleDownload(req, res) {
   var match = parts.pathname.match(/^\/download\/([^\/]+)/i);
 
   if (!match || !match.length)
-    return handleError(res, "missing hash");
+    return handleError(req, res, "missing hash");
 
   var hash = match[1];
   var data = decodeToken(parts.query.token);
@@ -299,15 +299,15 @@ function handleDownload(req, res) {
   var file = path.join(config['data_root'], hash);
   var stat = fs.stat(file, function(err, stat) {
     if (err)
-      return handleError(res, "unable to find file");
+      return handleError(req, res, "unable to find file");
 
     if (stat['size'] != data['size'])
-      return handleError(res, "size does not match");
+      return handleError(req, res, "size does not match");
 
     if (parts.query.exists) {
       res.writeHead(200, {
         "Content-Type": "text/javascript",
-        "Access-Control-Allow-Origin": config["tracker"]
+        "Access-Control-Allow-Origin": corsHeader(req)
       });
       res.end(JSON.stringify({success: "ok"}));
       return;
@@ -324,10 +324,17 @@ function handleDownload(req, res) {
   });
 }
 
-function handleError (res, error) {
+function handleError (req, res, error) {
   res.writeHead(200, {
     "Content-Type": "text/javascript",
-    "Access-Control-Allow-Origin": config["tracker"]
+    "Access-Control-Allow-Origin": corsHeader(req)
   });
   res.end(JSON.stringify({error: error}));
+}
+
+function corsHeader (req) {
+  var tracker_parts = url.parse(config['tracker']);
+  var origin = url.parse(req.headers['origin']);
+  tracker_parts['protocol'] = origin['protocol'];
+  return url.format(tracker_parts).replace(/\/$/, "");
 }
