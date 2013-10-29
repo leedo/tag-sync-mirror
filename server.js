@@ -268,8 +268,10 @@ function handleUpload(req, res) {
     }
 
     if (fs.existsSync(dest)) {
-      fs.unlinkPath(upload.path);
-      done();
+      fs.unlink(upload.path, function(err) {
+        if (err) console.log(err); // non-fatal
+        done();
+      });
     }
     else {
       fs.rename(upload.path, dest, function(err) {
