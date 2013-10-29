@@ -47,6 +47,7 @@ function downloadFile(download, servers) {
     hostname: parts['hostname'],
     port: parts['port'],
     path: "/download/" + download.hash + "?token=" + encodeURIComponent(server.token),
+    headers: {"User-Agent": "server-" + config['id']}
   }, function(res) {
     // error response
     if (res.headers["content-type"] == "text/javascript") {
@@ -113,7 +114,10 @@ function checkSyncQueue() {
     hostname: parts['hostname'],
     port: parts['port'],
     path: "/tracker/api/upload/" + download.id + "/servers",
-    headers: { "X-Server-Auth": config['token'] }
+    headers: {
+      "X-Server-Auth": config['token'],
+      "User-Agent": "server-" + config['id']
+    }
   }, function(res) {
     var body = "";
     res.on('data', function(chunk) {
@@ -146,7 +150,10 @@ function pollTracker() {
     hostname: parts['hostname'],
     port: parts['port'],
     path: "/tracker/api/my/downloads",
-    headers: { "X-Server-Auth": config['token'] }
+    headers: {
+      "X-Server-Auth": config['token'],
+      "User-Agent": "server-" + config['id']
+    }
   }, function(res) {
     var body = "";
     res.on('data', function(chunk) {
