@@ -230,16 +230,17 @@ function handleUpload(req, res) {
       }
     }
 
-    if (!fs.existsSync(dest)) {
+    if (fs.existsSync(dest)) {
+      fs.unlinkPath(upload.path);
+      done();
+    }
+    else {
       fs.rename(upload.path, dest, function(err) {
         if (err)
           handleError(res, err);
         else
           done();
       });
-    }
-    else {
-      done();
     }
   });
 }
