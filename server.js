@@ -233,7 +233,8 @@ function handleUpload(req, res) {
   form.hash = "sha1";
   form.parse(req, function(err, fields, files) {
     if (err) return handleError(req, res, err);
-    if (!files.file) return handleError(req, res, "no file");    
+    if (!files.file || files.file.size == 0)
+      return handleError(req, res, "no file");    
 
     var data = decodeToken(fields.token);
     var upload = files.file;
