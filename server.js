@@ -123,6 +123,9 @@ function checkSyncQueue() {
     res.on('data', function(chunk) {
       body += chunk;
     });
+    res.on('error', function(e) {
+      console.log("error reading server list response from tracker: " + e);
+    });
     res.on('end', function() {
       try {
         var data = JSON.parse(body);
@@ -134,6 +137,9 @@ function checkSyncQueue() {
         console.log(e);
       }
     });
+  });
+  req.on("error", function(e) {
+    console.log("erroring fetching server list from tracker: " . e);
   });
   req.end();
 }
@@ -159,6 +165,9 @@ function pollTracker() {
     res.on('data', function(chunk) {
       body += chunk;
     });
+    res.on("error", function(e) {
+      console.log("error reading poll response from tracker: " + e);
+    });
     res.on('end', function() {
       try {
         var data = JSON.parse(body);
@@ -179,6 +188,9 @@ function pollTracker() {
         }
       }
     });
+  });
+  req.on("error", function(e) {
+    console.log("error polling tracker: " + e);
   });
   req.end();
 }
