@@ -4,6 +4,7 @@ var http = require("http")
   , path = require("path")
   , util = require("util")
   , crypto = require("crypto")
+  , child_process = require("child_process")
   , formidable = require('formidable');
 
 var server = http.createServer(handleRequest);
@@ -241,7 +242,7 @@ function decodeToken(token) {
 }
 
 function handleUpload(req, res) {
-  var form = new formidable.IncomingForm({uploadDir: config['data_root']});
+  var form = new formidable.IncomingForm({uploadDir: path.join(config['data_root'], "tmp")});
   form.hash = "sha1";
 
   var tags = [];
@@ -259,14 +260,15 @@ function handleUpload(req, res) {
     var upload = files.file;
     var dest = path.join(config['data_root'], upload.hash);
       
-    function done () {
+    function done (filename, info) {
       var sha = crypto.createHash("sha1");
       sha.update([config['token'], upload.size, upload.hash].join(""));
       var sig = sha.digest("hex");
       var res_data = {
         hash: upload.hash,
         size: upload.size,
-        filename: upload.name,
+        info: info,
+        filename: filename,
         server: config['id'],
         tags: tags,
         sig: sig
@@ -294,12 +296,29 @@ function handleUpload(req, res) {
       });
     }
     else {
-      fs.rename(upload.path, dest, function(err) {
-        if (err)
+      if (upload.name.match(/\.zip$/i)) {
+        var unzip = child_process.spawn("unzip", [upload.path, "-d", dest]);
+        unzip.on("close", function() {
+          var info = child_process.spawn("zipinfo", ["-1", upload.path])
+            , lines = [];
+          info.stdout.on("data", function(line) {
+            lines.push(line.toString());
+          });
+          info.on("close", function() {
+            done("", lines.join(""));
+          });
+        });
+        unzip.on("error", function() {
           handleError(req, res, err);
-        else
-          done();
-      });
+        });
+      }
+      else {
+        fs.rename(upload.path, dest, function(err) {
+          if (err)
+            return handleError(req, res, err);
+          done(upload.name);
+        });
+      }
     }
   });
 }
@@ -337,7 +356,7 @@ function handleDownload(req, res) {
     if (err)
       return handleError(req, res, "unable to find file");
 
-    if (stat['size'] != data['size'])
+    if (stat.isFile() && stat['size'] != data['size'])
       return handleError(req, res, "size does not match");
 
     if (parts.query.exists) {
@@ -349,14 +368,23 @@ function handleDownload(req, res) {
       return;
     }
 
-    res.writeHead(200, {
-      'Content-Type': 'application/octet-stream',
-      'Content-Disposition': 'attachment; filename="' + data['filename'] + '"',
-      'Content-Length': stat.size
-    });
-
-    var stream = fs.createReadStream(file);
-    stream.pipe(res);
+    if (stat.isFile()) {
+      res.writeHead(200, {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': 'attachment; filename="' + data['filename'] + '"',
+        'Content-Length': stat.size
+      });
+      var stream = fs.createReadStream(file);
+      stream.pipe(res);
+    }
+    else {
+      res.writeHead(200, {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': 'attachment; filename="' + data['filename'] + '.tar"',
+      });
+      var tar = child_process.spawn("tar", ["-cvf", "-", "."], {cwd: file});
+      tar.stdout.pipe(res);
+    }
   });
 }
 
