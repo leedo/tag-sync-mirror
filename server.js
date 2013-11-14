@@ -243,6 +243,13 @@ function decodeToken(token) {
 function handleUpload(req, res) {
   var form = new formidable.IncomingForm({uploadDir: config['data_root']});
   form.hash = "sha1";
+
+  var tags = [];
+  form.addListener("field", function(field, value) {
+    if (field == "tags")
+      tags.push(value);
+  });
+
   form.parse(req, function(err, fields, files) {
     if (err) return handleError(req, res, err);
     if (!files.file || files.file.size == 0)
@@ -261,7 +268,7 @@ function handleUpload(req, res) {
         size: upload.size,
         filename: upload.name,
         server: config['id'],
-        tags: fields.tags,
+        tags: tags,
         sig: sig
       };
       var body = encodeURIComponent(
