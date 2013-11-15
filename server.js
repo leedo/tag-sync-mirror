@@ -271,14 +271,13 @@ function handleUpload(req, res) {
     var upload = files.file;
     var dest = path.join(config['data_root'], upload.hash);
       
-    function done (filename, info) {
+    function done (filename) {
       var sha = crypto.createHash("sha1");
       sha.update([config['token'], upload.size, upload.hash].join(""));
       var sig = sha.digest("hex");
       var res_data = {
         hash: upload.hash,
         size: upload.size,
-        info: info,
         filename: filename,
         server: config['id'],
         tags: tags,
@@ -303,20 +302,16 @@ function handleUpload(req, res) {
     if (fs.existsSync(dest)) {
       fs.unlink(upload.path, function(err) {
         if (err) console.log(err); // non-fatal
-        done();
+        done(upload.name);
       });
     }
     else {
       if (upload.name.match(/\.zip$/i)) {
         var unzip = child_process.spawn("unzip", [upload.path, "-d", dest]);
         unzip.on("close", function() {
-          var info = child_process.spawn("zipinfo", ["-1", upload.path])
-            , lines = [];
-          info.stdout.on("data", function(line) {
-            lines.push(line.toString());
-          });
-          info.on("close", function() {
-            done("", lines.join(""));
+          fs.unlink(upload.path, function(err) {
+            if (err) console.log(err);
+            done("");
           });
         });
         unzip.on("error", function() {
