@@ -409,9 +409,8 @@ function handleStreamer (req, res) {
     return handleError(req, res, "missing hash");
 
   var hash = match[1];
-  var limit = data['track'] ? (60 * 60) : (60 * 10);
 
-  if (time - data['time'] > limit)
+  if (time - data['time'] > (60 * 10))
     throw "token is expired";
 
   // handle single track
