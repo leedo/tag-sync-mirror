@@ -475,7 +475,7 @@ function findAudio (dir, done) {
         }
         else {
           var match = file.match(pattern);
-          if (match.length)
+          if (match && match.length)
             matches.push({
               path: file,
               name: match[1],
