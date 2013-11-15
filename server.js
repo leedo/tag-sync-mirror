@@ -419,7 +419,8 @@ function handleStreamer (req, res) {
     var stream = fs.createReadStream(data['track']);
     res.writeHead(200, {
       "Content-Type": "audio/mp3",
-      "Access-Control-Allow-Origin": corsHeader(req)
+      "Access-Control-Allow-Origin": corsHeader(req),
+      "Content-Length": data['size']
     });
     stream.pipe(res);
     return;
@@ -436,11 +437,14 @@ function handleStreamer (req, res) {
     files.forEach(function(file) {
       base.query.token = buildToken({
         time: ((new Date()).getTime() / 1000),
-        track: file
+        size: file.size,
+        track: file.path
       });
 
-      var name = file.match(/[^\/]+$/)[0];
-      urls.push({name: name, url: url.format(base)});
+      urls.push({
+        name: file.name,
+        url: url.format(base)
+      });
     });
 
     res.writeHead(200, {
@@ -453,7 +457,7 @@ function handleStreamer (req, res) {
 }
 
 function findAudio (dir, done) {
-  var pattern = /\/[^.][^\/]*\.(mp3|aac|mp4|ogg)$/i
+  var pattern = /\/([^.][^\/]*)\.(mp3|aac|mp4|ogg)$/i
     , matches = [];
   fs.readdir(dir, function(err, files) {
     if (err) return done(err);
@@ -470,8 +474,13 @@ function findAudio (dir, done) {
           });
         }
         else {
-          if (pattern.test(file))
-            matches.push(file);
+          var match = file.match(pattern);
+          if (match.length)
+            matches.push({
+              path: file,
+              name: match[1],
+              size: stat.size
+            });
           if (!--pending) done(null, matches);
         }
       });
