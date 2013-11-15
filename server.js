@@ -7,6 +7,7 @@ var http = require("http")
   , child_process = require("child_process")
   , formidable = require('formidable');
 
+
 var server = http.createServer(handleRequest);
 var config = JSON.parse(fs.readFileSync("config.json"));
 
@@ -205,6 +206,8 @@ function handleRequest(req, res) {
       var parts = url.parse(req.url);
       if (parts.pathname == "/ping")
         handlePing(req, res);
+      else if (parts.pathname.match(/^\/streamer\//))
+        handleStreamer(req, res);
       else
         handleDownload(req, res);
     }
@@ -224,6 +227,14 @@ function handleRequest(req, res) {
   catch (err) {
     handleError(req, res, err);
   }
+}
+
+function buildToken(data) {
+  var json = JSON.stringify(data);
+  var hmac = crypto.createHmac("sha1", config['token']);
+  hmac.update(json);
+  var sig = hmac.digest('hex');
+  return new Buffer([sig, json].join(":")).toString("base64");
 }
 
 function decodeToken(token) {
@@ -385,6 +396,86 @@ function handleDownload(req, res) {
       var tar = child_process.spawn("tar", ["-cvf", "-", "."], {cwd: file});
       tar.stdout.pipe(res);
     }
+  });
+}
+
+function handleStreamer (req, res) {
+  var parts = url.parse(req.url, true)
+    , match = parts.pathname.match(/^\/streamer\/([^\/]+)/i)
+    , data = decodeToken(parts.query.token)
+    , time = (new Date()).getTime() / 1000;
+
+  if (!match || !match.length)
+    return handleError(req, res, "missing hash");
+
+  var hash = match[1];
+  var limit = data['track'] ? (60 * 60) : (60 * 10);
+
+  if (time - data['time'] > limit)
+    throw "token is expired";
+
+  // handle single track
+  if (data['track']) {
+    var stream = fs.createReadStream(data['track']);
+    res.writeHead(200, {
+      "Content-Type": "audio/mp3",
+      "Access-Control-Allow-Origin": corsHeader(req)
+    });
+    stream.pipe(res);
+    return;
+  }
+
+  // handle playlist
+  var dir = path.join(config['data_root'], hash);
+  findAudio(dir, function(err, files) {
+    if (err) return handleError(req, res, err);
+
+    var urls = []
+      , base = url.parse("http://" + req.headers['host'] + parts.pathname, true);
+
+    files.forEach(function(file) {
+      base.query.token = buildToken({
+        time: ((new Date()).getTime() / 1000),
+        track: file
+      });
+
+      var name = file.match(/[^\/]+$/)[0];
+      urls.push({name: name, url: url.format(base)});
+    });
+
+    res.writeHead(200, {
+      "Content-Type": "text/javascript",
+      "Access-Control-Allow-Origin": corsHeader(req)
+    });
+
+    res.end(JSON.stringify({success: true, tracks: urls}));
+  });
+}
+
+function findAudio (dir, done) {
+  var pattern = /(mp3|aac|mp4|ogg)/i
+    , matches = [];
+  fs.readdir(dir, function(err, files) {
+    if (err) return done(err);
+    var pending = files.length;
+    files.forEach(function(file) {
+      file = path.join(dir, file);
+      fs.stat(file, function (err, stat) {
+        if (err) return done(err);
+        if (stat && stat.isDirectory()) {
+          findAudio(file, function(err, res) {
+            if (err) return done(err);
+            matches = matches.concat(res);
+            if (!--pending) done(null, matches);
+          });
+        }
+        else {
+          if (pattern.test(file))
+            matches.push(file);
+          if (!--pending) done(null, matches);
+        }
+      });
+    });
   });
 }
 
