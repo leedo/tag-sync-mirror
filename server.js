@@ -8,8 +8,8 @@ var http = require("http")
   , formidable = require('formidable');
 
 
-var server = http.createServer(handleRequest);
-var config = JSON.parse(fs.readFileSync("config.json"));
+var server = http.createServer(handleRequest)
+  , config = JSON.parse(fs.readFileSync("config.json"));
 
 var sync = {
   size   : 3,
@@ -35,8 +35,8 @@ function downloadFile(download, servers) {
     return;
   }
 
-  var server = servers.pop();
-  var parts = url.parse(server.url);
+  var server = servers.pop()
+    , parts = url.parse(server.url);
 
   // skip server if it is ourself
   if (server.id == config['id'])
@@ -253,10 +253,10 @@ function decodeToken(token) {
 }
 
 function handleUpload(req, res) {
-  var form = new formidable.IncomingForm({uploadDir: path.join(config['data_root'], "tmp")});
-  form.hash = "sha1";
+  var form = new formidable.IncomingForm({uploadDir: path.join(config['data_root'], "tmp")})
+    , tags = [];
 
-  var tags = [];
+  form.hash = "sha1";
   form.addListener("field", function(field, value) {
     if (field == "tags")
       tags.push(value);
@@ -267,9 +267,9 @@ function handleUpload(req, res) {
     if (!files.file || files.file.size == 0)
       return handleError(req, res, "no file");    
 
-    var data = decodeToken(fields.token);
-    var upload = files.file;
-    var dest = path.join(config['data_root'], upload.hash);
+    var data = decodeToken(fields.token)
+      , upload = files.file
+      , dest = path.join(config['data_root'], upload.hash);
       
     function done (filename) {
       var sha = crypto.createHash("sha1");
@@ -338,15 +338,15 @@ function handlePing(req, res) {
 }
 
 function handleDownload(req, res) {
-  var parts = url.parse(req.url, true);
-  var match = parts.pathname.match(/^\/download\/([^\/]+)/i);
+  var parts = url.parse(req.url, true)
+    , match = parts.pathname.match(/^\/download\/([^\/]+)/i);
 
   if (!match || !match.length)
     return handleError(req, res, "missing hash");
 
-  var hash = match[1];
-  var data = decodeToken(parts.query.token);
-  var required = ['filename', 'time', 'size'];
+  var hash = match[1]
+    , data = decodeToken(parts.query.token)
+    , required = ['filename', 'time', 'size'];
 
   for (var i=0; i < required.length; i++) {
     if (!data[required[i]])
@@ -358,7 +358,7 @@ function handleDownload(req, res) {
     throw "token is expired";
 
   var file = path.join(config['data_root'], hash);
-  var stat = fs.stat(file, function(err, stat) {
+  fs.stat(file, function(err, stat) {
     if (err)
       return handleError(req, res, "unable to find file");
 
