@@ -1,3 +1,5 @@
 data
 config.json
 node_modules
+server.pid
+server.log
