@@ -1,4 +1,4 @@
-=== install node
+###install node
 <pre>
 cd ~
 wget http://nodejs.org/dist/v0.10.22/node-v0.10.22-linux-x64.tar.gz
@@ -7,7 +7,7 @@ echo PATH=$HOME/node/bin:$PATH >> .bash_profile
 source .bash_profile
 </pre>
 
-=== checkout
+###checkout
 <pre>
 cd ~
 git clone https://github.com/leedo/tag-sync-mirror.git
@@ -26,7 +26,7 @@ node server.js
 You may need to modify the port number in `config.json`
 if the default port (5000) is already in use.
 
-=== register
+###register
 
  * visit tracker
  * click "My servers"
@@ -34,12 +34,12 @@ if the default port (5000) is already in use.
  * enter your server's address e.g. `http://123.45.6.7:5000`
  * click Submit
 
-=== update config
+###update config
 
 Note the server ID and token you were given in the last step.
 Update your `config.json` file with those values.
 
-=== startup
+###startup
 
 <pre>
 cd ~
