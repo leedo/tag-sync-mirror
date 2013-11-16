@@ -271,14 +271,15 @@ function handleUpload(req, res) {
       , upload = files.file
       , dest = path.join(config['data_root'], upload.hash);
       
-    function done (filename) {
+    function done (streaming) {
       var sha = crypto.createHash("sha1");
       sha.update([config['token'], upload.size, upload.hash].join(""));
       var sig = sha.digest("hex");
       var res_data = {
         hash: upload.hash,
         size: upload.size,
-        filename: filename,
+        filename: upload.name,
+        streaming: streaming,
         server: config['id'],
         tags: tags,
         sig: sig
@@ -302,7 +303,10 @@ function handleUpload(req, res) {
     if (fs.existsSync(dest)) {
       fs.unlink(upload.path, function(err) {
         if (err) console.log(err); // non-fatal
-        done(upload.name);
+        fs.stat(dest, function(err, stat) {
+          if (err) return handleError(req, res, err);
+          done(stat.isDirectory());
+        });
       });
     }
     else {
@@ -311,7 +315,7 @@ function handleUpload(req, res) {
         unzip.on("close", function() {
           fs.unlink(upload.path, function(err) {
             if (err) console.log(err);
-            done("");
+            done(true);
           });
         });
         unzip.on("error", function() {
@@ -322,7 +326,7 @@ function handleUpload(req, res) {
         fs.rename(upload.path, dest, function(err) {
           if (err)
             return handleError(req, res, err);
-          done(upload.name);
+          done(false);
         });
       }
     }
