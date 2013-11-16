@@ -42,7 +42,7 @@ function downloadFile(download, servers) {
   if (server.id == config['id'])
     return downloadFile(download, servers);
 
-  console.log("attempting to download " + download.filename + " from " + server.name);
+  console.log("attempting to download " + download.hash + " from " + server.name);
 
   var req = http.request({
     method: "GET",
@@ -53,7 +53,7 @@ function downloadFile(download, servers) {
   }, function(res) {
     // error response
     if (res.headers["content-type"] == "text/javascript") {
-      console.log(server.name + " did not have " + download.filename);
+      console.log(server.name + " did not have " + download.hash);
       var body = "";
       res.on('data', function(chunk) {
         body += chunk;
@@ -65,7 +65,7 @@ function downloadFile(download, servers) {
       return;
     }
 
-    console.log("downloading " + download.filename + " from " + server.name);
+    console.log("downloading " + download.hash + " from " + server.name);
 
     // data response
     var temp = path.join(config["data_root"], "tmp", download.hash);
@@ -73,15 +73,22 @@ function downloadFile(download, servers) {
     res.on('end', function() {
       var dest = path.join(config["data_root"], download.hash);
       if (download.streaming) {
-        var untar = child_process.spawn("tar", ["-xvf", temp, dest]);
-        untar.on("error", function(err) {
-          console.log(err);
-          delete sync.jobs[download.hash];
-          return;
-        });
-        untar.on("close", function() {
-          console.log("finished " + download.filename + " from " + server.name);
-          delete sync.jobs[download.hash];
+        fs.mkdir(dest, function(err) {
+          if (err) {
+            console.log(err);
+            delete sync.jobs[download.hash];
+            return;
+          }
+          var untar = child_process.spawn("tar", ["-xvf", path.resolve(temp)], {cwd: dest});
+          untar.on("error", function(err) {
+            console.log(err);
+            delete sync.jobs[download.hash];
+            return;
+          });
+          untar.on("close", function() {
+            console.log("finished " + download.hash + " from " + server.name);
+            delete sync.jobs[download.hash];
+          });
         });
       } else {
         fs.rename(temp, dest, function(err) {
@@ -90,7 +97,7 @@ function downloadFile(download, servers) {
             delete sync.jobs[download.hash];
             return;
           }
-          console.log("finished " + download.filename + " from " + server.name);
+          console.log("finished " + download.hash + " from " + server.name);
           delete sync.jobs[download.hash];
         });
       }
@@ -198,7 +205,7 @@ function pollTracker() {
         var download = data.downloads[i];
         var dest = path.join(config['data_root'], download.hash);
         if (!fs.existsSync(dest) && !sync.jobs[download.hash]) {
-          console.log("enqueued " + download.filename);
+          console.log("enqueued " + download.hash);
           sync.queue.push(download);
         }
       }
