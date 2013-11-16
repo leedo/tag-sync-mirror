@@ -72,15 +72,28 @@ function downloadFile(download, servers) {
     var write = fs.createWriteStream(temp);
     res.on('end', function() {
       var dest = path.join(config["data_root"], download.hash);
-      fs.rename(temp, dest, function(err) {
-        if (err) {
+      if (download.streaming) {
+        var untar = child_process.spawn("tar", ["-xvf", temp, dest]);
+        untar.on("error", function(err) {
           console.log(err);
           delete sync.jobs[download.hash];
           return;
-        }
-        console.log("finished " + download.filename + " from " + server.name);
-        delete sync.jobs[download.hash];
-      });
+        });
+        untar.on("close", function() {
+          console.log("finished " + download.filename + " from " + server.name);
+          delete sync.jobs[download.hash];
+        });
+      } else {
+        fs.rename(temp, dest, function(err) {
+          if (err) {
+            console.log(err);
+            delete sync.jobs[download.hash];
+            return;
+          }
+          console.log("finished " + download.filename + " from " + server.name);
+          delete sync.jobs[download.hash];
+        });
+      }
     });
     // try another server
     res.on('error', function() {
