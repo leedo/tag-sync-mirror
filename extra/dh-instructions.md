@@ -50,7 +50,7 @@ crontab -e
 This will bring up an editor. Enter this line:
 
 <pre>
-  * *   *   *   *    bash $HOME/server.sh start
+  * * * * *  bash $HOME/dh-server.sh start
 </pre>
 
 This will make sure your server is running every minute.
