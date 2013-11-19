@@ -4,8 +4,8 @@ var http = require("http")
   , path = require("path")
   , util = require("util")
   , crypto = require("crypto")
-  , child_process = require("child_process")
-  , formidable = require('formidable');
+  , formidable = require('formidable')
+  , child_process = require("child_process");
 
 
 var server = http.createServer(handleRequest)
@@ -70,42 +70,44 @@ function downloadFile(download, servers) {
     // data response
     var temp = path.join(config["data_root"], "tmp", download.hash);
     var write = fs.createWriteStream(temp);
+
     res.on('end', function() {
       var dest = path.join(config["data_root"], download.hash);
+      var cleanup = function(err) {
+        delete sync.jobs[download.hash];
+        if (err) console.log(err);
+        fs.exists(temp, function(exists) {
+          if (!exists) return;
+          fs.unlink(temp, function(err) {
+            if (err) console.log(err);
+          });
+        });
+      };
+
       if (download.streaming) {
         fs.mkdir(dest, function(err) {
-          if (err) {
-            console.log(err);
-            delete sync.jobs[download.hash];
-            return;
-          }
+          if (err) return cleanup(err);
           var untar = child_process.spawn("tar", ["-xvf", path.resolve(temp)], {cwd: dest});
-          untar.on("error", function(err) {
-            console.log(err);
-            delete sync.jobs[download.hash];
-            return;
-          });
+          untar.on("error", cleanup);
           untar.on("close", function() {
             console.log("finished " + download.hash + " from " + server.name);
-            delete sync.jobs[download.hash];
+            cleanup();
           });
         });
       } else {
         fs.rename(temp, dest, function(err) {
-          if (err) {
-            console.log(err);
-            delete sync.jobs[download.hash];
-            return;
-          }
+          if (err) return cleanup(err);
           console.log("finished " + download.hash + " from " + server.name);
-          delete sync.jobs[download.hash];
+          cleanup();
         });
       }
     });
+
     // try another server
     res.on('error', function() {
       downloadFile(download, servers);
     });
+
     res.pipe(write);
   });
 
