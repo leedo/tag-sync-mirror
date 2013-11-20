@@ -203,14 +203,13 @@ function pollTracker() {
         return;
       }
 
-      for (var i=0; i < data.downloads.length; i++) {
-        var download = data.downloads[i];
+      data.downloads.forEach(function(download) {
         var dest = path.join(config['data_root'], download.hash);
         if (!fs.existsSync(dest) && !sync.jobs[download.hash]) {
           console.log("enqueued " + download.hash);
           sync.queue.push(download);
         }
-      }
+      });
     });
   });
   req.on("error", function(e) {
@@ -371,13 +370,12 @@ function handleDownload(req, res) {
     return handleError(req, res, "missing hash");
 
   var hash = match[1]
-    , data = decodeToken(parts.query.token)
-    , required = ['filename', 'time', 'size'];
+    , data = decodeToken(parts.query.token);
 
-  for (var i=0; i < required.length; i++) {
-    if (!data[required[i]])
-      throw required[i] + " is missing";
-  }
+  ['filename', 'time', 'size'].forEach(function(field) {
+    if (!data[field])
+      throw filed + " is missing";
+  });
 
   var time = (new Date()).getTime() / 1000;
   if (time - data['time'] > (60 * 10))
