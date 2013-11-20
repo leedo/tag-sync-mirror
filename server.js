@@ -413,6 +413,9 @@ function handleDownload(req, res) {
         'Content-Disposition': 'attachment; filename="' + data['filename'] + '.tar"',
       });
       var tar = child_process.spawn("tar", ["-cvf", "-", "."], {cwd: file});
+      tar.on("error", function(err) {
+        console.log(err);
+      });
       tar.stdout.pipe(res);
     }
   });
