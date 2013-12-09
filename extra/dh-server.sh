@@ -13,7 +13,7 @@ start_server()
   then
     cd $DIR
     echo "staring server..."
-    nice -n 19 -- $NODE $SUPERVISOR server.js &> $LOG &
+    nice -n 19 -- $NODE $SUPERVISOR --exec $NODE server.js &> $LOG &
     echo "$!" > $PID
   fi
 }
