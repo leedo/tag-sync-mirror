@@ -50,7 +50,7 @@ crontab -e
 This will bring up an editor. Enter this line:
 
 <pre>
-  * * * * *  exec $HOME/server.sh start >> $HOME/tag-sync-mirror/server.log 2>&1 &
+  * * * * *  exec $HOME/dh-server.sh start >> $HOME/tag-sync-mirror/server.log 2>&1 &
 </pre>
 
 This will make sure your server is running every minute.
