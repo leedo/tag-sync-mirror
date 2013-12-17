@@ -437,12 +437,43 @@ function handleStreamer (req, res) {
 
   // handle single track
   if (data['track']) {
-    var stream = fs.createReadStream(data['track']);
-    res.writeHead(200, {
+    var options = {};
+    var status = 200;
+    var headers = {
       "Content-Type": "audio/mp3",
       "Access-Control-Allow-Origin": corsHeader(req),
+      "Accept-Ranges": "bytes",
       "Content-Length": data['size']
-    });
+    };
+    if (req.headers['range']) {
+      var parts = req.headers['range'].split("=");
+      if (parts[0] == "bytes") {
+        var range = parts[1].split("-");
+        if (range.length) {
+          if (range[0] == "") {
+            options['start'] = data['size'] - range[0];
+            options['end'] = parseInt(data['size']) - 1;
+          }
+          else if (range[1] == "") {
+            options['start'] = parseInt(range[0]);
+            options['end'] = parseInt(data['size']) - 1;
+          }
+          else {
+            options['start'] = parseInt(range[0]);
+            options['end'] = parseInt(range[1]);
+          }
+          // skip 206 response if the range was 0- (full file)
+          if (!(options['start'] == 0 && options['end'] == data['size'] - 1)) {
+            status = 206;
+            headers['Content-Length'] = (options['end'] - options['start']) + 1;
+            headers['Content-Range'] = "bytes " + options['start']
+              + "-" + options['end'] + "/" + data['size'];
+          }
+        }
+      }
+    }
+    var stream = fs.createReadStream(data['track'], options);
+    res.writeHead(status, headers);
     stream.pipe(res);
     return;
   }
