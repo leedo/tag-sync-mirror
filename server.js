@@ -262,9 +262,9 @@ function decodeToken(token) {
   if (!token)
     throw "token is required";
 
-  var token_parts = new Buffer(token, "base64").toString().match(/^([^:]+):(.+)/);
+  var token_parts = new Buffer(token, "base64").toString("utf8").match(/^([^:]+):(.+)/);
   var hmac = crypto.createHmac("sha1", config["token"]);
-  hmac.update(token_parts[2]);
+  hmac.update(token_parts[2], "utf8");
   var valid = hmac.digest('hex');
 
   if (valid != token_parts[1])
