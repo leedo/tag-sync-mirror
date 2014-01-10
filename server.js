@@ -541,11 +541,17 @@ function findAudio (dir, done) {
 }
 
 function handleError (req, res, error) {
-  res.writeHead(200, {
-    "Content-Type": "text/javascript",
-    "Access-Control-Allow-Origin": corsHeader(req)
-  });
-  res.end(JSON.stringify({error: error}));
+  if (req.headers['accept'].split(",").indexOf("text/html") > -1) {
+    res.writeHead(200, {"Content-Type": "text/html"});
+    res.end("<html><body><h1>Error</h1><p>" + error + "</p></body</html>");
+  }
+  else {
+    res.writeHead(200, {
+      "Content-Type": "text/javascript",
+      "Access-Control-Allow-Origin": corsHeader(req)
+    });
+    res.end(JSON.stringify({error: error}));
+  }
 }
 
 function corsHeader (req) {
