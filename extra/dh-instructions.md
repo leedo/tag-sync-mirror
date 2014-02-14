@@ -12,7 +12,7 @@ source .bash_profile
 cd ~
 git clone https://github.com/leedo/tag-sync-mirror.git
 cd tag-sync-mirror
-npm install supervisor formidable
+npm install supervisor formidable which
 mkdir -p data/tmp
 cp config.example.json config.json
 </pre>
