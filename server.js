@@ -339,8 +339,23 @@ function handleUpload(req, res) {
             done(true);
           });
         });
-        unzip.on("error", function() {
+        unzip.on("error", function(err) {
           handleError(req, res, err);
+        });
+      }
+      else if (upload.name.match(/\.rar$/i)) {
+        fs.mkdir(dest, function(err) {
+          if (err) return handleError(req, res, err);
+          var unrar = child_process.spawn("unrar", ["x", upload.path, dest]);
+          unrar.on("close", function() {
+            fs.unlink(upload.path, function(err) {
+              if (err) console.log(err);
+              done(true);
+            });
+          });
+          unrar.on("error", function(err) {
+            handleError(req, res, err);
+          });
         });
       }
       else {
