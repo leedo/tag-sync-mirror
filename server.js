@@ -3,6 +3,7 @@ var http = require("http")
   , fs   = require("fs")
   , path = require("path")
   , util = require("util")
+  , which = require("which")
   , crypto = require("crypto")
   , formidable = require('formidable')
   , child_process = require("child_process");
@@ -18,6 +19,28 @@ var sync = {
   queue  : [],
   jobs   : {}
 };
+
+var cmd = {
+  unrar: find_cmd("unrar"),
+  tar: find_cmd("tar"),
+  unzip: find_cmd("unzip")
+};
+
+function find_cmd(cmd) {
+  var path = false;
+  try {
+    path = which.sync(cmd);
+  }
+  catch(e) {
+    path = false;
+  }
+  return path;
+}
+
+console.log(cmd);
+
+if (!cmd.tar)
+  throw "tar is required";
 
 pollTracker();
 
@@ -87,7 +110,7 @@ function downloadFile(download, servers) {
       if (download.streaming) {
         fs.mkdir(dest, function(err) {
           if (err) return cleanup(err);
-          var untar = child_process.spawn("tar", ["-xvf", path.resolve(temp)], {cwd: dest});
+          var untar = child_process.spawn(cmd.tar, ["-xvf", path.resolve(temp)], {cwd: dest});
           untar.on("error", cleanup);
           untar.on("close", function() {
             console.log("finished " + download.hash + " from " + server.name);
@@ -331,8 +354,8 @@ function handleUpload(req, res) {
       });
     }
     else {
-      if (upload.name.match(/\.zip$/i)) {
-        var unzip = child_process.spawn("unzip", [upload.path, "-d", dest]);
+      if (cmd.zip && upload.name.match(/\.zip$/i)) {
+        var unzip = child_process.spawn(cmd.zip, [upload.path, "-d", dest]);
         unzip.on("close", function() {
           fs.unlink(upload.path, function(err) {
             if (err) console.log(err);
@@ -343,10 +366,10 @@ function handleUpload(req, res) {
           handleError(req, res, err);
         });
       }
-      else if (upload.name.match(/\.rar$/i)) {
+      else if (cmd.unrar && upload.name.match(/\.rar$/i)) {
         fs.mkdir(dest, function(err) {
           if (err) return handleError(req, res, err);
-          var unrar = child_process.spawn("unrar", ["x", upload.path, dest]);
+          var unrar = child_process.spawn(cmd.unrar, ["x", upload.path, dest]);
           unrar.on("close", function() {
             fs.unlink(upload.path, function(err) {
               if (err) console.log(err);
@@ -427,7 +450,7 @@ function handleDownload(req, res) {
         'Content-Type': 'application/octet-stream',
         'Content-Disposition': 'attachment; filename="' + data['filename'] + '.tar"',
       });
-      var tar = child_process.spawn("tar", ["-cvf", "-", "."], {cwd: file});
+      var tar = child_process.spawn(cmd.tar, ["-cvf", "-", "."], {cwd: file});
       tar.on("error", function(err) {
         console.log(err);
       });
