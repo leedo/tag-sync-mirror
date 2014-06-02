@@ -354,8 +354,8 @@ function handleUpload(req, res) {
       });
     }
     else {
-      if (cmd.zip && upload.name.match(/\.zip$/i)) {
-        var unzip = child_process.spawn(cmd.zip, [upload.path, "-d", dest]);
+      if (cmd.unzip && upload.name.match(/\.zip$/i)) {
+        var unzip = child_process.spawn(cmd.unzip, [upload.path, "-d", dest]);
         unzip.on("close", function() {
           fs.unlink(upload.path, function(err) {
             if (err) console.log(err);
