@@ -545,7 +545,7 @@ function handleStreamer (req, res) {
 }
 
 function findAudio (dir, done) {
-  var pattern = /\/([^.][^\/]*)\.(mp3|aac|mp4|ogg)$/i
+  var pattern = /\/([^.][^\/]*)\.(mp3|aac|mp4|ogg|m4a)$/i
     , matches = [];
   fs.readdir(dir, function(err, files) {
     if (err) return done(err);
