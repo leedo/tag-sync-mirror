@@ -395,7 +395,22 @@ function handlePing(req, res) {
     "Content-Type": "text/javascript",
     "Access-Control-Allow-Origin": corsHeader(req)
   });
-  res.end(JSON.stringify({success: "ok"}));
+  fs.exists(".git/HEAD", function(exists) {
+    function version (ver) {
+      res.end(JSON.stringify({version: ver, success: "ok"}));
+    }
+
+    if (!exists) return unknown("unknown");
+
+    fs.readFile(".git/HEAD", {encoding: "utf8"}, function(err, head) {
+      if (err) return version("unknown");
+      var ref_path = head.trim().split(": ")[1];
+      fs.readFile(".git/" + ref_path, {encoding: "utf8"}, function(err, ref) {
+        if (err) return version("unknown");
+        return version(ref.trim().substr(0, 7));
+      });
+    });
+  });
 }
 
 function handleDownload(req, res) {
