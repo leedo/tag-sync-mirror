@@ -356,28 +356,26 @@ function handleUpload(req, res) {
     else {
       if (cmd.unzip && upload.name.match(/\.zip$/i)) {
         var unzip = child_process.spawn(cmd.unzip, [upload.path, "-d", dest]);
-        unzip.on("close", function() {
+        unzip.on("close", function(code, signal) {
+          if (code != 0)
+            return handleError(req, res, "unable to unzip file");
           fs.unlink(upload.path, function(err) {
             if (err) console.log(err);
             done(true);
           });
-        });
-        unzip.on("error", function(err) {
-          handleError(req, res, err);
         });
       }
       else if (cmd.unrar && upload.name.match(/\.rar$/i)) {
         fs.mkdir(dest, function(err) {
           if (err) return handleError(req, res, err);
           var unrar = child_process.spawn(cmd.unrar, ["x", upload.path, dest]);
-          unrar.on("close", function() {
+          unrar.on("close", function(code, signal) {
+            if (code != 0)
+              return handleError(req, res, "unable to unrar file");
             fs.unlink(upload.path, function(err) {
               if (err) console.log(err);
               done(true);
             });
-          });
-          unrar.on("error", function(err) {
-            handleError(req, res, err);
           });
         });
       }
