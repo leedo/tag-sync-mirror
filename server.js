@@ -400,7 +400,7 @@ function handlePing(req, res) {
       res.end(JSON.stringify({version: ver, success: "ok"}));
     }
 
-    if (!exists) return unknown("unknown");
+    if (!exists) return version("unknown");
 
     fs.readFile(".git/HEAD", {encoding: "utf8"}, function(err, head) {
       if (err) return version("unknown");
