@@ -564,6 +564,8 @@ function findAudio (dir, done) {
     , matches = [];
   fs.readdir(dir, function(err, files) {
     if (err) return done(err);
+    if (!files.length) return done(null, matches);
+
     var pending = files.length;
     files.forEach(function(file) {
       file = path.join(dir, file);
