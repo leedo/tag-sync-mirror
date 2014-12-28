@@ -365,6 +365,20 @@ function handleUpload(req, res) {
           });
         });
       }
+      else if (cmd.tar && upload.name.match(/\.tar$/i)) {
+        fs.mkdir(dest, function(err) {
+          if (err) return handleError(req, res, err);
+          var untar = child_process.spawn(cmd.tar, ["-xvf", upload.path, "-C", dest]);
+          untar.on("close", function(code, signal) {
+            if (code != 0)
+              return handleError(req, res, "unable to untar file");
+            fs.unlink(upload.path, function(err) {
+              if (err) console.log(err);
+              done(true);
+            });
+          });
+        });
+      }
       else if (cmd.unrar && upload.name.match(/\.rar$/i)) {
         fs.mkdir(dest, function(err) {
           if (err) return handleError(req, res, err);
@@ -463,10 +477,18 @@ function handleDownload(req, res) {
         'Content-Type': 'application/octet-stream',
         'Content-Disposition': 'attachment; filename="' + data['filename'] + '.tar"',
       });
-      var tar = child_process.spawn(cmd.tar, ["-cvf", "-", "."], {cwd: file});
-      tar.on("error", function(err) {
-        console.log(err);
+      var tar = child_process.spawn(cmd.tar, ["-cvf", "-", "."], {
+        cwd: file,
+        stdio: [
+          'ignore',
+          'pipe',
+          'ignore'
+        ]
       });
+      tar.on("error", res.destroy.bind(res));
+      tar.on("close", res.destroy.bind(res));
+      res.on('error', tar.kill.bind(tar));
+      res.on("close", tar.kill.bind(tar));
       tar.stdout.pipe(res);
     }
   });
