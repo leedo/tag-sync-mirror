@@ -470,6 +470,10 @@ function handleDownload(req, res) {
         'Content-Length': stat.size
       });
       var stream = fs.createReadStream(file);
+      stream.on("error", res.destroy.bind(res));
+      stream.on("close", res.destroy.bind(res));
+      res.on("error", stream.destroy.bind(stream));
+      res.on("error", stream.destroy.bind(stream));
       stream.pipe(res);
     }
     else {
@@ -548,6 +552,10 @@ function handleStreamer (req, res) {
     var stream = fs.createReadStream(data['track'], options);
     res.writeHead(status, headers);
     stream.pipe(res);
+    stream.on("error", res.destroy.bind(res));
+    stream.on("close", res.destroy.bind(res));
+    res.on("error", stream.destroy.bind(stream));
+    res.on("close", stream.destroy.bind(stream));
     return;
   }
 
